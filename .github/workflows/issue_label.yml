@@ -22,16 +22,9 @@ jobs:
             // ======================
             // SECURE INPUT HANDLING
             // ======================
-            const rawLabel = context.payload.label?.name || '';
-            const sanitizedLabel = rawLabel
-              .replace(/[^a-zA-Z0-9_\-.]/g, '')
-              .replace(/^[.-]+|[.-]+$/g, '')
-              .slice(0, 50);
+            const sanitizedLabel = context.payload.label?.name || '';
 
             const rawUsername = context.actor || '';
-            if (!/^[a-zA-Z\d](?:[a-zA-Z\d]-(?=[a-zA-Z\d])){0,38}$/.test(rawUsername)) {
-              throw new Error(`Invalid username : ${rawUsername}`);
-            }
             const actorUsername = rawUsername.toLowerCase();
 
             // Issue number validation
