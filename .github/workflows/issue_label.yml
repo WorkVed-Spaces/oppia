@@ -16,7 +16,7 @@ jobs:
       - name: Validate issue label
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.TEAM_READ_PAT }}
+          github-token: ${{ secrets.PAT }}
           script: |
             const { context } = require('@actions/github');
             
