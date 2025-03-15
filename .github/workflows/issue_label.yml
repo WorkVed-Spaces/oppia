@@ -18,7 +18,6 @@ jobs:
         with:
           github-token: ${{ secrets.PAT }}
           script: |
-            const { context } = require('@actions/github');
             
             // ======================
             // SECURE INPUT HANDLING
