@@ -1,0 +1,142 @@
+name: Check Issue Labels
+
+on:
+  issues:
+    types:
+      - labeled
+
+permissions: read-all
+
+jobs:
+  check-label:
+    runs-on: ubuntu-22.04
+    permissions:
+      issues: write 
+    steps:
+      - name: Validate issue label
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.TEAM_READ_PAT }}
+          script: |
+            const { context } = require('@actions/github');
+            
+            // ======================
+            // SECURE INPUT HANDLING
+            // ======================
+            const rawLabel = context.payload.label?.name || '';
+            const sanitizedLabel = rawLabel
+              .replace(/[^a-zA-Z0-9_\-.]/g, '')
+              .replace(/^[.-]+|[.-]+$/g, '')
+              .slice(0, 50);
+
+            const rawUsername = context.actor || '';
+            if (!/^[a-zA-Z\d](?:[a-zA-Z\d]-(?=[a-zA-Z\d])){0,38}$/.test(rawUsername)) {
+              throw new Error(`Invalid username : ${rawUsername}`);
+            }
+            const actorUsername = rawUsername.toLowerCase();
+
+            // Issue number validation
+            const issueNumber = Number(context.issue.number);
+            if (!Number.isSafeInteger(issueNumber) || issueNumber < 1) {
+              throw new Error(`Invalid issue number: ${issueNumber}`);
+            }
+
+            const { owner, repo } = context.repo;
+            function escapeForTemplate(str) {
+              return str.replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
+            }
+
+            // ======================
+            // TEAM MEMBERSHIP CHECK
+            // ======================
+            async function getGoodFirstIssueLabelers() {
+              try {
+                const result = await github.graphql({
+                  query: `query ($org: String!, $teamSlug: String!) {
+                    organization(login: $org) {
+                      team(slug: $teamSlug) {
+                        members(first: 100) {
+                          totalCount
+                          nodes { login }
+                        }
+                      }
+                    }
+                  }`,
+                  org: 'WorkVed-Spaces',
+                  teamSlug: 'oppia-good-first-issue-labelers'
+                });
+
+                const teamMembers = result.organization.team.members;
+                if (teamMembers.totalCount > 100) {
+                  throw new Error(`Team has ${teamMembers.totalCount} members (max 100 supported)`);
+                }
+
+                return new Set(
+                  teamMembers.nodes.map(node => node.login.toLowerCase())
+                );
+              } catch (error) {
+                console.error('Team membership check failed:', error);
+                throw new Error(`Team verification failed: ${error.message}`);
+              }
+            }
+
+            // ======================
+            // LABEL ENFORCEMENT
+            // ======================
+            async function enforceLabelRules() {
+              const authorizedMembers = await getGoodFirstIssueLabelers();
+              const prSpecificLabels = new Set(['dependencies', 'stale']);
+
+              // Handle 'good first issue' label
+              if (sanitizedLabel.toLowerCase() === 'good first issue') {
+                if (!authorizedMembers.has(actorUsername)) {
+                  await github.rest.issues.removeLabel({
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    name: sanitizedLabel
+                  });
+                  const escapedLabel = escapeForTemplate(sanitizedLabel);
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    body: `@${actorUsername}, only [oppia-good-first-issue-labelers team members](https://github.com/orgs/oppia/teams/oppia-good-first-issue-labelers) can apply the "${escapedLabel}" label.`
+                  });
+                }
+                return;
+              }
+
+              // Block PR-specific labels
+              if (prSpecificLabels.has(sanitizedLabel.toLowerCase()) || 
+                  sanitizedLabel.startsWith('PR:')) {
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  name: sanitizedLabel
+                });
+                const escapedLabel = escapeForTemplate(sanitizedLabel);
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: issueNumber,
+                  body: `@${actorUsername}, the "${escapedLabel}" label is reserved for pull requests.`
+                });
+              }
+            }
+
+            await enforceLabelRules();
+  
+  report-failure:
+    needs: check-label
+    runs-on: ubuntu-22.04
+    if: ${{ always() && needs.check-label.result == 'failure' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Send notification
+        uses: ./.github/actions/send-webhook-notification
+        with:
+          message: "Failed to Handle Label on Issues"
+          webhook-url: ${{ secrets.BUILD_FAILURE_ROOM_WEBHOOK_URL }}
