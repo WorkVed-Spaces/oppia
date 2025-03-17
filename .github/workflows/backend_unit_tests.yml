@@ -25,7 +25,14 @@ jobs:
       - name: Merge develop and set up dependencies
         uses: ./.github/actions/merge-develop-and-set-up-dependencies
       - name: Run backend associated test file check
-        run: python -m scripts.check_backend_associated_test_file
+        run: python -m scripts.check_backend_associated_test_file | tee backend_test_file_check.log
+      - name: Upload test file check logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend_test_file_check_logs
+          path: backend_test_file_check.log
+          retention-days: 7
       - name: Report failure if failed on oppia/oppia develop branch
         if: ${{ failure() && github.event_name == 'push' && github.repository == 'oppia/oppia' && github.ref == 'refs/heads/develop'}}
         uses: ./.github/actions/send-webhook-notification
@@ -46,7 +53,14 @@ jobs:
       - name: Run backend test shard
         id: run_backend_test_shard
         if: startsWith(github.head_ref, 'update-changelog-for-release') == false
-        run: python -m scripts.run_backend_tests --generate_coverage_report --generate_time_report --ignore_coverage --exclude_load_tests --test_shard ${{ matrix.shard }}
+        run: python -m scripts.run_backend_tests --generate_coverage_report --generate_time_report --ignore_coverage --exclude_load_tests --test_shard ${{ matrix.shard }} | tee backend_test_shard_${{ matrix.shard }}.log
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend_test_logs_shard_${{ matrix.shard }}
+          path: backend_test_shard_${{ matrix.shard }}.log
+          retention-days: 7
       - name: Report failure if failed on oppia/oppia develop branch
         if: ${{ steps.run_backend_test_shard.outputs.WORKFLOW_STATUS == 'failure' && github.event_name == 'push' && github.repository == 'oppia/oppia' && github.ref == 'refs/heads/develop'}}
         uses: ./.github/actions/send-webhook-notification
@@ -114,26 +128,21 @@ jobs:
       - name: Combine coverage reports
         if: startsWith(github.head_ref, 'update-changelog-for-release') == false
         shell: bash
-        run: coverage combine coverage/.coverage.*
+        run: coverage combine coverage/.coverage.* | tee coverage_combine.log
       - name: Check coverage
         id: check_backend_coverage
         if: startsWith(github.head_ref, 'update-changelog-for-release') == false
         shell: bash
-        run: python -m scripts.check_backend_test_coverage
-      - name: Leave a comment on the PR if workflow failed
-        if: ${{ steps.check_backend_coverage.outputs.WORKFLOW_STATUS == 'failure' }}
-        uses: ./.github/actions/post-comment
+        run: python -m scripts.check_backend_test_coverage | tee coverage_check.log
+      - name: Upload coverage check logs
+        if: always() && startsWith(github.head_ref, 'update-changelog-for-release') == false
+        uses: actions/upload-artifact@v4
         with:
-          owner: ${{ github.event.repository.owner.login }}
-          repo: ${{ github.event.repository.name }}
-          issue_number: ${{ github.event.number }}
-          message: >
-            🛠️ Hi @${{ github.event.pull_request.user.login }}, it looks like
-            the backend coverage tests are failing on your PR. Please follow
-            [these instructions](https://github.com/oppia/oppia/wiki/Backend-tests#coverage-reports)
-            to fix the missing coverage.
-
-            Thanks!
+          name: coverage_check_logs
+          path: |
+            coverage_combine.log
+            coverage_check.log
+          retention-days: 7
       - name: Report failure if failed on oppia/oppia develop branch
         if: ${{ steps.check_backend_coverage.outputs.WORKFLOW_STATUS == 'failure' && github.event_name == 'push' && github.repository == 'oppia/oppia' && github.ref == 'refs/heads/develop'}}
         uses: ./.github/actions/send-webhook-notification
@@ -182,8 +191,15 @@ jobs:
           mkdir -p backend_test_time_reports
           for i in {1..5}; do cp backend_test_time_reports_artifacts/backend_test_time_$i/backend_test_time_report.json backend_test_time_reports/backend_test_time_report_$i.json; done
       - name: Check test times
-        run: python -m scripts.check_backend_test_times
+        run: python -m scripts.check_backend_test_times | tee backend_test_times_check.log
         shell: bash
+      - name: Upload test times check logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend_test_times_check_logs
+          path: backend_test_times_check.log
+          retention-days: 7
       - name: Upload test times artifact
         if: ${{ github.event_name == 'push' && github.repository == 'oppia/oppia' && github.ref == 'refs/heads/develop' }}
         uses: actions/upload-artifact@v4
