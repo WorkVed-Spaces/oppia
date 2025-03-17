@@ -140,6 +140,7 @@ def run_tests(args: argparse.Namespace) -> Tuple[List[bytes], int]:
             skip_sdk_update_check=True,
             env={
                 **os.environ,
+                'LOG_LEVEL': os.environ.get('LOG_LEVEL', 'info'),
                 'PORTSERVER_ADDRESS': common.PORTSERVER_SOCKET_FILEPATH,
                 'PIP_NO_DEPS': 'True'
             }))
