@@ -410,14 +410,7 @@ jobs:
       - name: Merge develop and set up dependencies
         uses: ./.github/actions/merge-develop-and-set-up-dependencies
       - name: Check that all e2e and acceptance test files are captured in wdio.conf.js and core/tests/ci-test-suite-configs
-        run: python -m scripts.check_tests_are_captured_in_ci | tee e2e_acceptance_coverage.log
-      - name: Upload e2e/acceptance coverage logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-acceptance-coverage-logs
-          path: e2e_acceptance_coverage.log
-          retention-days: 7
+        run: python -m scripts.check_tests_are_captured_in_ci
       - name: Report failure if failed on oppia/oppia develop branch
         if: ${{ failure() && github.event_name == 'push' && github.repository == 'oppia/oppia' && github.ref == 'refs/heads/develop'}}
         uses: ./.github/actions/send-webhook-notification
@@ -508,11 +501,10 @@ jobs:
           echo "MODIFIED_SUITE_NAME=${SUITE_NAME//\//_}" >> $GITHUB_OUTPUT
       - name: Run E2E Test ${{ matrix.suite.name }}
         run: >
-          LOG_LEVEL=debug
           VIDEO_RECORDING_IS_ENABLED=0
           xvfb-run -a --server-args="-screen 0, 1285x1000x24"
           python -m scripts.run_e2e_tests --skip-install
-          --skip-build --suite=${{ matrix.suite.name }} --prod_env | tee e2e_test_${{ steps.generate_suite_name_for_artifacts.outputs.MODIFIED_SUITE_NAME }}.log
+          --skip-build --suite=${{ matrix.suite.name }} --prod_env --server_log_level=info | tee e2e_test_${{ steps.generate_suite_name_for_artifacts.outputs.MODIFIED_SUITE_NAME }}.log
       - name: Upload E2E test logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -523,11 +515,10 @@ jobs:
       - name: Run E2E Test ${{ matrix.suite.name }} (Attempt 2 with screen recording)
         if: ${{ failure() }}
         run: >
-          LOG_LEVEL=debug
           VIDEO_RECORDING_IS_ENABLED=1
           xvfb-run -a --server-args="-screen 0, 1285x1000x24"
           python -m scripts.run_e2e_tests --skip-install
-          --skip-build --suite=${{ matrix.suite.name }} --prod_env | tee e2e_test_retry_${{ steps.generate_suite_name_for_artifacts.outputs.MODIFIED_SUITE_NAME }}.log
+          --skip-build --suite=${{ matrix.suite.name }} --prod_env --server_log_level=info | tee e2e_test_retry_${{ steps.generate_suite_name_for_artifacts.outputs.MODIFIED_SUITE_NAME }}.log
       - name: Upload E2E retry test logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
@@ -582,11 +573,10 @@ jobs:
           echo "MODIFIED_SUITE_NAME=${SUITE_NAME//\//_}" >> $GITHUB_OUTPUT
       - name: Run Desktop Acceptance Test ${{ matrix.suite.name }}
         run: >
-          LOG_LEVEL=debug
           VIDEO_RECORDING_IS_ENABLED=0
           xvfb-run -a --server-args="-screen 0, 1285x1000x24" 
           python -m scripts.run_acceptance_tests 
-          --skip-build --suite=${{ matrix.suite.name }} --prod_env | tee desktop_acceptance_test_${{ steps.generate_suite_name_for_artifacts.outputs.MODIFIED_SUITE_NAME }}.log
+          --skip-build --suite=${{ matrix.suite.name }} --prod_env --server_log_level=info | tee desktop_acceptance_test_${{ steps.generate_suite_name_for_artifacts.outputs.MODIFIED_SUITE_NAME }}.log
       - name: Upload desktop acceptance test logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -597,11 +587,10 @@ jobs:
       - name: Run Desktop Acceptance Test ${{ matrix.suite.name }} (Attempt 2 with screen recording)
         if: ${{ failure() }}
         run: >
-          LOG_LEVEL=debug
           VIDEO_RECORDING_IS_ENABLED=1
           xvfb-run -a --server-args="-screen 0, 1285x1000x24" 
           python -m scripts.run_acceptance_tests 
-          --skip-build --suite=${{ matrix.suite.name }} --prod_env | tee desktop_acceptance_test_retry_${{ steps.generate_suite_name_for_artifacts.outputs.MODIFIED_SUITE_NAME }}.log
+          --skip-build --suite=${{ matrix.suite.name }} --prod_env --server_log_level=info | tee desktop_acceptance_test_retry_${{ steps.generate_suite_name_for_artifacts.outputs.MODIFIED_SUITE_NAME }}.log
       - name: Upload desktop acceptance retry test logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
@@ -637,7 +626,7 @@ jobs:
           # Change dimensions to match 16:9 aspect ratio
           xvfb-run -a --server-args="-screen 0, 1920x1080x24" 
           python -m scripts.run_acceptance_tests --skip-build 
-          --suite=${{ matrix.suite.name }} --prod_env --mobile
+          --suite=${{ matrix.suite.name }} --prod_env --mobile --server_log_level=info
       - name: Uploading Mobile test recordings as Artifacts
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
