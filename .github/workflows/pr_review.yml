@@ -7,6 +7,10 @@ on:
 jobs:
   handle_review:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
