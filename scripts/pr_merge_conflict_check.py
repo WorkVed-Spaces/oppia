@@ -3,7 +3,7 @@ import requests
 import time
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-REPO = os.getenv("REPO")
+REPO = os.getenv("GITHUB_REPOSITORY")
 HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 RETRY_COUNT = 3
 RETRY_DELAY = 5  # seconds
