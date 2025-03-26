@@ -31,6 +31,7 @@ from scripts import install_third_party_libs
 
 import requests
 from typing import Dict, List, Optional, Set, TypedDict, Any
+import time
 
 # Global configuration.
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
