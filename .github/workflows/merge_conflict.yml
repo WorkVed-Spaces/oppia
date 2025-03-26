@@ -34,6 +34,7 @@ jobs:
     
     - name: Check PR Merge Conflicts
       env:
+        GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         python scripts/pr_merge_conflict_check.py
