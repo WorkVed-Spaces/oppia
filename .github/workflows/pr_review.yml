@@ -1,0 +1,110 @@
+name: PR Review Handling
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  handle_review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract PR metadata
+        id: pr_meta
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          AUTHOR_LOGIN="${{ github.event.pull_request.user.login }}"
+          REVIEWER_LOGIN="${{ github.event.review.user.login }}"
+          REVIEW_STATE="${{ github.event.review.state }}"
+          
+          # Get sanitized requested reviewers using curl
+          REQUESTED_REVIEWERS=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER" | \
+            grep -E '"login":' | \
+            awk -F'"' '{print $4}' | \
+            tr '\n' ' ' | \
+            sed 's/ *$//' | \
+            sed 's/ /","/g' | \
+            sed 's/^/["/;s/$/"]/')
+          
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "author_login=$(printf '%s' "$AUTHOR_LOGIN" | sed 's/"/\\"/g')" >> $GITHUB_OUTPUT
+          echo "reviewer_login=$(printf '%s' "$REVIEWER_LOGIN" | sed 's/"/\\"/g')" >> $GITHUB_OUTPUT
+          echo "review_state=$(printf '%s' "$REVIEW_STATE" | sed 's/"/\\"/g')" >> $GITHUB_OUTPUT
+          echo "requested_reviewers=$REQUESTED_REVIEWERS" >> $GITHUB_OUTPUT
+
+      - name: Handle Approval
+        if: steps.pr_meta.outputs.review_state == 'approved'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get all approvals using curl
+          APPROVALS=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ steps.pr_meta.outputs.pr_number }}/reviews" | \
+            grep -B 3 '"state": "APPROVED"' | \
+            grep '"login":' | \
+            awk -F'"' '{print $4}' | \
+            sort -u)
+
+          # Convert requested reviewers to space-separated list
+          REQUESTED=$(echo ${{ steps.pr_meta.outputs.requested_reviewers }} | \
+            sed 's/[][]//g' | \
+            tr ',' ' ' | \
+            tr -d '"')
+
+          # Check approval status
+          ALL_APPROVED=true
+          PENDING_REVIEWERS=()
+          for reviewer in $REQUESTED; do
+            if ! echo "$APPROVALS" | grep -q "^${reviewer}$"; then
+              ALL_APPROVED=false
+              PENDING_REVIEWERS+=("$reviewer")
+            fi
+          done
+
+          if $ALL_APPROVED; then
+            # Add LGTM label
+            curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Content-Type: application/json" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.pr_meta.outputs.pr_number }}/labels" \
+              -d '{"labels":["LGTM"]}'
+
+            # Assign author
+            curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Content-Type: application/json" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.pr_meta.outputs.pr_number }}/assignees" \
+              -d '{"assignees":["'"${{ steps.pr_meta.outputs.author_login }}"'"]}'
+          else
+            # Re-request pending reviews
+            for reviewer in "${PENDING_REVIEWERS[@]}"; do
+              curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
+                -H "Content-Type: application/json" \
+                "https://api.github.com/repos/${{ github.repository }}/pulls/${{ steps.pr_meta.outputs.pr_number }}/requested_reviewers" \
+                -d '{"reviewers":["'"$reviewer"'"]}'
+            done
+          fi
+
+      - name: Handle Changes Requested
+        if: steps.pr_meta.outputs.review_state == 'changes_requested'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Remove LGTM label
+          curl -s -X DELETE -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.pr_meta.outputs.pr_number }}/labels/LGTM"
+
+          # Remove reviewer assignment
+          curl -s -X DELETE -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.pr_meta.outputs.pr_number }}/assignees" \
+            -d '{"assignees":["'"${{ steps.pr_meta.outputs.reviewer_login }}"'"]}'
+
+          # Assign author
+          curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.pr_meta.outputs.pr_number }}/assignees" \
+            -d '{"assignees":["'"${{ steps.pr_meta.outputs.author_login }}"'"]}'
