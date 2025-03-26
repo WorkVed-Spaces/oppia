@@ -23,15 +23,14 @@ the script assigns the PR author to the PR and notifies them via a GitHub commen
 
 from __future__ import annotations
 
-import collections
-import datetime
 import logging
 import os
+import time
+
 from scripts import install_third_party_libs
 
 import requests
-from typing import Dict, List, Optional, Set, TypedDict, Any
-import time
+from typing import Any, Dict, List, Optional
 
 # Global configuration.
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
@@ -75,9 +74,7 @@ class GitHubService:
         prs: List[Dict[str, Any]] = []
         page = 1
         while True:
-            url = (
-                f'{self.base_url}/pulls?state=open&page={page}&per_page=100'
-            )
+            url = f'{self.base_url}/pulls?state=open&page={page}&per_page=100'
             response = requests.get(url, headers=self.rest_headers, timeout=TIMEOUT)
             response.raise_for_status()
             current_prs = response.json()
@@ -94,8 +91,7 @@ class GitHubService:
             pr_number: The number of the pull request.
 
         Returns:
-            A dictionary with PR details if the mergeable state is determined;
-            otherwise, None.
+            A dictionary with PR details if the mergeable state is determined; otherwise, None.
         """
         pr_details_url = f'{self.base_url}/pulls/{pr_number}'
         for attempt in range(RETRY_COUNT):
@@ -128,7 +124,9 @@ class GitHubService:
         """
         assign_url = f'{self.base_url}/issues/{pr_number}'
         assign_payload = {'assignees': [pr_author]}
-        response = requests.patch(assign_url, json=assign_payload, headers=self.rest_headers, timeout=TIMEOUT)
+        response = requests.patch(
+            assign_url, json=assign_payload, headers=self.rest_headers, timeout=TIMEOUT
+        )
         if response.ok:
             return True
         logging.error(
@@ -157,7 +155,9 @@ class GitHubService:
             'if you need help resolving the conflict so that the PR can be merged. Thanks!'
         )
         comment_payload = {'body': message}
-        response = requests.post(comment_url, json=comment_payload, headers=self.rest_headers, timeout=TIMEOUT)
+        response = requests.post(
+            comment_url, json=comment_payload, headers=self.rest_headers, timeout=TIMEOUT
+        )
         if response.ok:
             return True
         logging.error(
@@ -225,9 +225,7 @@ def main() -> None:
         logging.error('Error encountered: %s', e)
 
 
-if __name__ == '__main__': # pragma: no cover
-    # This installs third party libraries (requests) before
-    # importing other files or importing libraries that use
-    # the builtins python module (e.g. build, utils).
+if __name__ == '__main__':  # pragma: no cover
+    # Ensure third-party libraries are installed before executing the main logic.
     install_third_party_libs.main()
     main()
