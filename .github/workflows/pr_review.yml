@@ -4,9 +4,7 @@ on:
   pull_request_review:
     types: [submitted]
 
-permissions:
-    pull-requests: write
-    issues: write
+permissions: {}
 
 jobs:
   handle_review:
