@@ -6,7 +6,7 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 REPO = os.getenv("GITHUB_REPOSITORY")
 HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 RETRY_COUNT = 3
-RETRY_DELAY = 5  # seconds
+RETRY_DELAY = 5
 
 def list_open_prs():
     """Fetch all open pull requests with pagination."""
@@ -52,9 +52,9 @@ def notify_pr_author(pr_number, pr_author):
     """Notify the PR author about merge conflicts."""
     comment_url = f"https://api.github.com/repos/{REPO}/issues/{pr_number}/comments"
     message = (
-        f"Hi @{pr_author}, this PR has **merge conflicts** that need to be resolved. "
-        f"Please resolve them following [our guide](https://oppia.github.io/#/contributing). "
-        f"Thank you!"
+        f"Hi @{pr_author}, due to recent changes in the 'develop' branch, this PR now has a merge conflict. "
+        f"Please refer to [GitHub's guide on resolving merge conflicts](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/addressing-merge-conflicts/resolving-a-merge-conflict-using-the-command-line) "
+        f"if you need help resolving the conflict, so that the PR can be merged. Thanks!"
     )
     comment_payload = {"body": message}
     response = requests.post(comment_url, json=comment_payload, headers=HEADERS)
