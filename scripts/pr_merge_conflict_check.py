@@ -30,7 +30,13 @@ import time
 from scripts import install_third_party_libs
 
 import requests
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional, TypedDict
+
+# Define a TypedDict for pull request data.
+class PRData(TypedDict, total=False):
+    number: int
+    user: Dict[str, str]
+    mergeable_state: str
 
 # Global configuration.
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
@@ -65,39 +71,39 @@ class GitHubService:
             'Accept': 'application/vnd.github.v3+json'
         }
 
-    def list_open_prs(self) -> List[Dict[str, Any]]:
+    def list_open_prs(self) -> List[PRData]:
         """Fetches all open pull requests with pagination.
 
         Returns:
-            List of dictionaries representing open pull requests.
+            List of PRData dictionaries representing open pull requests.
         """
-        prs: List[Dict[str, Any]] = []
+        prs: List[PRData] = []
         page = 1
         while True:
             url = f'{self.base_url}/pulls?state=open&page={page}&per_page=100'
             response = requests.get(url, headers=self.rest_headers, timeout=TIMEOUT)
             response.raise_for_status()
-            current_prs = response.json()
+            current_prs: List[PRData] = response.json()
             if not current_prs:
                 break
             prs.extend(current_prs)
             page += 1
         return prs
 
-    def fetch_pr_details(self, pr_number: int) -> Optional[Dict[str, Any]]:
+    def fetch_pr_details(self, pr_number: int) -> Optional[PRData]:
         """Fetches pull request details with retries until a definitive mergeable state is found.
 
         Args:
             pr_number: The number of the pull request.
 
         Returns:
-            A dictionary with PR details if the mergeable state is determined; otherwise, None.
+            A PRData dictionary with PR details if the mergeable state is determined; otherwise, None.
         """
         pr_details_url = f'{self.base_url}/pulls/{pr_number}'
         for attempt in range(RETRY_COUNT):
             response = requests.get(pr_details_url, headers=self.rest_headers, timeout=TIMEOUT)
             response.raise_for_status()
-            pr_details = response.json()
+            pr_details: PRData = response.json()
             mergeable_state = pr_details.get('mergeable_state')
             if mergeable_state and mergeable_state != 'unknown':
                 return pr_details
