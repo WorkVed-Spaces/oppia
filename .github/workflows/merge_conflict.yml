@@ -36,7 +36,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        python -m scripts/pr_merge_conflict_check
+        python -m scripts.pr_merge_conflict_check
       
     # Optional: Failure notification for specific branch
     - name: Report failure if failed on oppia/oppia develop branch
