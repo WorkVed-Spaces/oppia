@@ -21,12 +21,16 @@ If a PR is found to have merge conflicts (indicated by a mergeable_state of 'dir
 the script assigns the PR author to the PR and notifies them via a GitHub comment.
 """
 
-import os
-import time
+from __future__ import annotations
+
+import collections
+import datetime
 import logging
-from typing import Dict, List, Optional, Any
+import os
+from scripts import install_third_party_libs
 
 import requests
+from typing import Dict, List, Optional, Set, TypedDict, Any
 
 # Global configuration.
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
