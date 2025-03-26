@@ -13,7 +13,10 @@ jobs:
   check-pr-merge-conflicts:
     name: Check PR Merge Conflicts
     runs-on: ubuntu-22.04
-    
+    permissions:
+      pull-requests: write
+      issues: write
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
