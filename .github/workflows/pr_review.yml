@@ -121,8 +121,6 @@ on:
   pull_request_review:
     types: [submitted]
 
-permissions: {}
-
 jobs:
   handle_review:
     runs-on: ubuntu-latest
