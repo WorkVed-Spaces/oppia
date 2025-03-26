@@ -4,12 +4,13 @@ on:
   pull_request_review:
     types: [submitted]
 
+permissions:
+    pull-requests: write
+    issues: write
+
 jobs:
   handle_review:
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-      issues: write
 
     steps:
       - name: Checkout repository
